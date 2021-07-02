@@ -149,6 +149,7 @@ class StripePlan extends Product
         $locale = i18n::get_locale();
         $number = new NumberFormatter($locale, NumberFormatter::CURRENCY);
         return [
+            'id' => $this->StripeID,
             'currency' => $number->getTextAttribute(NumberFormatter::CURRENCY_CODE),
             'amount' => (int)($this->getBasePrice() * 100),
             'interval' => $this->Interval,
@@ -265,7 +266,7 @@ class StripePlan extends Product
         try {
             Plan::retrieve($this->StripeID);
         } catch (InvalidRequestException $e) {
-            if (strpos($e->getMessage(), "No such plan") !== false) {
+            if ($e->getStripeCode() === "resource_missing") {
                 Plan::create($this->getStripeCreateData());
             }
         }
