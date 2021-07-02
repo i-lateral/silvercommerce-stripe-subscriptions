@@ -22,8 +22,12 @@ class StripePlan extends Product
 
     const INTERVAL_YEAR = 'year';
 
-    private static $table_name = "StripePlanProduct";
- 
+    private static $table_name = "StripePlan";
+
+    private static $singular_name = 'Stripe Plan';
+
+    private static $plural_name = 'Stripe Plans';
+
     private static $description = "A product representing a subscription plan in stripe";
 
     /**
