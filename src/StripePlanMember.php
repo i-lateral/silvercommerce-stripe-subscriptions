@@ -79,14 +79,14 @@ class StripePlanMember extends DataObject
     /**
      * Return the current linked plan (or an empty object if none found)
      *
-     * @return \App\Model\StripePlanProduct
+     * @return StripePlan
      */
     public function getPlan()
     {
-        $plan = StripePlanProduct::get()->find('StockID', $this->PlanID);
+        $plan = StripePlan::get()->find('StockID', $this->PlanID);
 
         if (empty($plan)) {
-            $plan = StripePlanProduct::create(['ID' => -1]);
+            $plan = StripePlan::create(['ID' => -1]);
         }
 
         return $plan;
@@ -99,7 +99,7 @@ class StripePlanMember extends DataObject
      */
     public function getStripeSubscription()
     {
-        StripePlanProduct::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey();
         return Subscription::retrieve(
             [
                 'id' => $this->SubscriptionID,
