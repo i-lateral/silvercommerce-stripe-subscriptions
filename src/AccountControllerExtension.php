@@ -31,7 +31,7 @@ class AccountControllerExtension extends Extension
 
     public function paymentdetails()
     {
-        StripePlan::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey();
         $member = Security::getCurrentUser();
         $stripe_id = $member->StripeCustomerID;
         $cards = ArrayList::create();
@@ -85,7 +85,7 @@ class AccountControllerExtension extends Extension
     public function addcard()
     {
         // Build a stripe checkout session and redirect
-        StripePlan::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey();
         $member = Security::getCurrentUser();
         $checkout = StripeCheckoutSession::create(
             [
@@ -122,7 +122,7 @@ JS
      */
     public function attachcard()
     {
-        StripePlan::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey();
         $member = Security::getCurrentUser();
         $stripe_id = $member->StripeCustomerID;
 
@@ -150,7 +150,7 @@ JS
      */
     public function removecard()
     {
-        StripePlan::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey();
         $card = $this->getOwner()->getRequest()->param('ID');
 
         try {
@@ -212,7 +212,7 @@ JS
      */
     public function cancelsubscription()
     {
-        StripePlan::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey();
         $member = Security::getCurrentUser();
         $request = $this->getOwner()->getRequest();
         $product_id = $request->param('ID');
