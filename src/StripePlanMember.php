@@ -10,6 +10,7 @@ use SilverStripe\Control\Controller;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\FieldType\DBDatetime;
 use ilateral\SilverStripe\Users\Control\AccountController;
+use SilverCommerce\ContactAdmin\Model\Contact;
 
 /**
  * Join object that handles mapping a Stripe Plan to a user.
@@ -31,7 +32,7 @@ class StripePlanMember extends DataObject
     ];
 
     private static $has_one = [
-        'Member' => Member::class
+        'Contact' => Contact::class
     ];
 
     private static $summary_fields = [
