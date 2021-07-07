@@ -36,7 +36,7 @@ function registerElements(elements, stripe) {
     );
 
     // Listen on the form's 'submit' handler...
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         // Trigger HTML5 validation UI on the form if any of the inputs fail
@@ -58,10 +58,10 @@ function registerElements(elements, stripe) {
         }
 
         // Gather additional customer data we may have collected in our form.
-        var cardholdername = document.getElementById('cardholder-name');
-        var cardholderemail = document.getElementById('cardholder-email');
-        var cardholderlineone = document.getElementById('cardholder-lineone');
-        var cardholderzip = document.getElementById('cardholder-zip');
+        var cardholdername = document.getElementById('Form_PaymentForm_cardholder-name');
+        var cardholderemail = document.getElementById('Form_PaymentForm_cardholder-email');
+        var cardholderlineone = document.getElementById('Form_PaymentForm_cardholder-lineone');
+        var cardholderzip = document.getElementById('Form_PaymentForm_cardholder-zip');
         var secret = form.dataset.secret;
 
         // Use Stripe.js to create a token. We only need to pass in one Element
@@ -86,8 +86,9 @@ function registerElements(elements, stripe) {
             ).then(function(result) {
                 if (result.error) {
                     disablePayButton();
+                    alert(result.error.message);
                 } else {
-                    document.getElementById('paymentMethod').value = result.paymentMethod.id;
+                    document.getElementById('Form_PaymentForm_payment-intent').value = result.paymentIntent.id;
                     form.submit();
                 }
             });
@@ -102,7 +103,7 @@ window.onload = function() {
     if (document.contains(form)) {
 
         // Create a Stripe client and an instance of elements
-        var stripe_pk = form.dataset.stripe-pk;
+        var stripe_pk = form.dataset.stripepk;
         var stripe = Stripe(stripe_pk);
         var elements = stripe.elements();
     
