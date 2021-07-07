@@ -24,10 +24,6 @@ use Stripe\StripeClient;
  */
 class StripePlan extends Product
 {
-    const KEY_PUBLISH = 'publish_key';
-
-    const KEY_SECRET = 'secret_key';
-
     const INTERVAL_DAY = 'day';
 
     const INTERVAL_WEEK = 'week';
@@ -44,19 +40,6 @@ class StripePlan extends Product
 
     private static $description = "A product representing a subscription plan in stripe";
 
-    /**
-     * Stripe Publish Key
-     * 
-     * @var string
-     */
-    private static $publish_key;
-
-    /**
-     * Stripe Secret Key
-     *
-     * @var string
-     */
-    private static $secret_key;
 
     /**
      * Number of times a payment can fail before action is taken on a plan
@@ -72,7 +55,8 @@ class StripePlan extends Product
 
     private static $casting = [
         'StripeID' => 'Varchar',
-        'SubscriptionID' => 'Varchar'
+        'SubscriptionID' => 'Varchar',
+        'NiceInterval' => 'Varchar'
     ];
 
     private static $field_labels = [
@@ -107,6 +91,24 @@ class StripePlan extends Product
     public function getStripeID(): string
     {
         return $this->StockID;
+    }
+
+    public function getNicePrice(): string
+    {
+        if ($this->hasMethod('renderWith')) {
+            return $this->renderWith(__CLASS__ . "_NicePrice");
+        }
+
+        return "";
+    }
+
+    public function getNiceInterval(): string
+    {
+        return _t(
+            'StripeSubscriptions.PlanNiceInterval',
+            'Per {interval}',
+            ['interval' => ucwords($this->Interval)]
+        );
     }
 
     /**
@@ -177,42 +179,6 @@ class StripePlan extends Product
         return $expires->format('Y-m-d H:i:s');
     }
 
-    /**
-     * Get the stripe API key
-     *
-     * @param string $type The type of key (publish_key or secret_key)
-     *
-     * @throws LogicException
-     *
-     * @return string
-     */
-    public static function getStripeAPIKey($type = self::KEY_PUBLISH): string
-    {
-        if (!in_array($type, [self::KEY_SECRET, self::KEY_PUBLISH])) {
-            throw new LogicException('getStripeAPIKey requires either publish_key or secret_key');
-        }
-
-        return self::config()->get($type);
-    }
-
-    /**
-     * Globaly set the API key via the Stripe SDK
-     *
-     * @param string $type The type of key (publish or secret)
-     *
-     * @throws LogicException
-     *
-     * @return null
-     */
-    public static function setStripeAPIKey($type = self::KEY_PUBLISH): void
-    {
-        if (!in_array($type, [self::KEY_SECRET, self::KEY_PUBLISH])) {
-            throw new LogicException('setStripeAPIKey requires either publish_key or secret_key');
-        }
-
-        Stripe::setApiKey(self::config()->get($type));
-    }
-
     public function getCMSFields(): FieldList
     {
         $self = $this;
@@ -260,7 +226,7 @@ class StripePlan extends Product
     {
         parent::onAfterWrite();
 
-        self::setStripeAPIKey(self::KEY_SECRET);
+        StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
 
         // Check if this plan already exists, create a new one if not
         try {
