@@ -6,6 +6,7 @@ use Stripe\Customer;
 use SilverStripe\ORM\DataList;
 use SilverStripe\Security\Group;
 use SilverStripe\Forms\TextField;
+use SilverStripe\Security\Member;
 use SilverStripe\ORM\DataExtension;
 use SilverStripe\Forms\DatetimeField;
 use SilverStripe\Forms\DropdownField;
@@ -25,10 +26,6 @@ class MemberExtension extends DataExtension
 {
     private static $db = [
         'StripeCustomerID' => 'Varchar'
-    ];
-
-    private static $has_many = [
-        'StripePlans' => StripePlanMember::class
     ];
 
     /**
@@ -100,39 +97,41 @@ class MemberExtension extends DataExtension
 
     public function onAfterWrite()
     {
+        /** @var Member */
+        $owner = $this->getOwner();
+
         // Is Member a front-end user? If not, finish processing
-        $group = $this->getOwner()->Groups()->find('Code', 'users-frontend');
+        $group = $owner->Groups()->find('Code', 'users-frontend');
 
         if (empty($group)) {
             return;
         }
 
-        StripeConnector::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
 
-        // Either create a new user in stripe, or update the existing user
-        if (empty($this->getOwner()->StripeCustomerID)) {
-            $customer = Customer::create($this->getOwner()->getStripeData());
+        $customer = StripeConnector::createOrUpdate(
+            Customer::class,
+            $owner->getStripeData(),
+            $owner->StripeCustomerID
+        );
 
-            // Assign customer ID (if available)
-            if (isset($customer) && isset($customer->id)) {
-                $this->getOwner()->StripeCustomerID = $customer->id;
-                $this->getOwner()->write();
-            }
-        } else {
-            $customer = Customer::update(
-                $this->getOwner()->StripeCustomerID,
-                $this->getOwner()->getStripeData()
-            );
+        // Assign customer ID (if available)
+        if (isset($customer) && isset($customer->id)
+            && $customer->id !== $owner->StripeCustomerID
+        ) {
+            $owner->StripeCustomerID = $customer->id;
+            $owner->write();
         }
 
         // Finally, if this user has subscriptions, ensure they are in the Subscribers group
         // or remove them if not
         $sub_group = Group::get()->find('Code', 'subscriber');
+
         if (isset($sub_group)) {
-            if ($this->getOwner()->StripePlans()->exists()) {
-                $this->getOwner()->Groups()->add($sub_group);
+            if ($owner->StripePlans()->exists()) {
+                $owner->Groups()->add($sub_group);
             } else {
-                $this->getOwner()->Groups()->remove($sub_group);
+                $owner->Groups()->remove($sub_group);
             }
         }
     }
