@@ -91,4 +91,18 @@ class StripeConnector
 
         return $object;
     }
+
+    /**
+     * Retrieve an existing record from API
+     */
+    public static function retrieve(string $type, string $stripe_id): ApiResource
+    {
+        if (!is_a($type, ApiResource::class, true)) {
+            throw new LogicException("Type must be a type of API Resopurce");
+        }
+
+        self::setStripeAPIKey(self::KEY_SECRET);
+
+        return $type::retrieve($stripe_id);
+    }
 }
