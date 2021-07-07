@@ -3,7 +3,9 @@
 namespace ilateral\SilverCommerce\StripeSubscriptions;
 
 use Stripe\Customer;
+use SilverStripe\ORM\DataList;
 use SilverStripe\Security\Group;
+use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataExtension;
 use SilverStripe\Forms\DatetimeField;
 use SilverStripe\Forms\DropdownField;
@@ -12,7 +14,6 @@ use SilverStripe\Forms\GridField\GridFieldButtonRow;
 use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
 use SilverStripe\Forms\GridField\GridFieldDeleteAction;
 use SilverStripe\Forms\GridField\GridFieldToolbarHeader;
-use SilverStripe\Forms\TextField;
 use Symbiote\GridFieldExtensions\GridFieldEditableColumns;
 use Symbiote\GridFieldExtensions\GridFieldAddNewInlineButton;
 
@@ -29,6 +30,19 @@ class MemberExtension extends DataExtension
     private static $has_many = [
         'StripePlans' => StripePlanMember::class
     ];
+
+    /**
+     * Return a list of stripe plans from the attached contact
+     *
+     * @return DataList
+     */
+    public function getStripePlans(): DataList
+    {
+        return $this
+            ->getOwner()
+            ->Customer()
+            ->StripePlans();
+    }
 
     public function updateCMSFields(\SilverStripe\Forms\FieldList $fields)
     {
@@ -93,7 +107,7 @@ class MemberExtension extends DataExtension
             return;
         }
 
-        StripePlan::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey();
 
         // Either create a new user in stripe, or update the existing user
         if (empty($this->getOwner()->StripeCustomerID)) {
