@@ -7,12 +7,12 @@ SilverStripe\Security\Member:
 SilverCommerce\OrdersAdmin\Model\Estimate:
   extensions:
     - ilateral\SilverCommerce\StripeSubscriptions\EstimateExtension
-SilverCommerce\Checkout\Control\Checkout:
-  extensions:
-    - ilateral\SilverCommerce\StripeSubscriptions\CheckoutExtension
 SilverStripe\Security\Group:
   extensions:
     - ilateral\SilverCommerce\StripeSubscriptions\GroupExtension
 ilateral\SilverStripe\Users\Control\AccountController:
   extensions:
     - ilateral\SilverCommerce\StripeSubscriptions\AccountControllerExtension
+SilverCommerce\ContactAdmin\Model\Contact:
+  extensions:
+    - ilateral\SilverCommerce\StripeSubscriptions\ContactExtension
