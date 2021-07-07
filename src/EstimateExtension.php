@@ -10,6 +10,7 @@ use SilverStripe\ORM\DataExtension;
 class EstimateExtension extends DataExtension
 {
     private static $db = [
+        'StripeSubscriptionID' => 'Varchar',
         'StripeSessionID' => 'Varchar'
     ];
 }
