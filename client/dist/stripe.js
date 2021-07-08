@@ -23,9 +23,12 @@ function registerElements(elements, stripe, form) {
     // Check if the stripe form valid, if so, enable payment button
     window.setInterval(
         function() {
+            var existing_card = document.getElementById(id + '_existing-card');
             var complete_elements = form.querySelectorAll(".stripe-field-container.StripeElement--complete");
-            
-            if (complete_elements.length === 3) {
+    
+            if (complete_elements.length === 3
+                || (document.contains(existing_card) && existing_card.value !== "")
+            ) {
                 enablePayButton();
             } else {
                 disablePayButton();
@@ -62,10 +65,13 @@ function registerElements(elements, stripe, form) {
         var cardholderemail = document.getElementById(id + '_cardholder-email');
         var cardholderlineone = document.getElementById(id + '_cardholder-lineone');
         var cardholderzip = document.getElementById(id + '_cardholder-zip');
+        var existing_card = document.getElementById(id + '_existing-card');
         var secret = form.dataset.secret;
 
-        var setup_data = {
-            payment_method: {
+        if (document.contains(existing_card)) {
+            var payment_method = existing_card.value;
+        } else {
+            var payment_method = {
                 card: elements[0],
                 billing_details: {
                     name: cardholdername.value,
@@ -76,7 +82,9 @@ function registerElements(elements, stripe, form) {
                     }
                 }
             }
-        };
+        }
+
+        var setup_data = { payment_method: payment_method };
 
         // Use Stripe.js to either confirm card payment or setup and return an ID
         if (intent_type == 'payment') {

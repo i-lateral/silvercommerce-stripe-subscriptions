@@ -2,18 +2,22 @@
 
 namespace ilateral\SilverCommerce\StripeSubscriptions;
 
-use Dompdf\FrameDecorator\Text;
 use LogicException;
+use Stripe\SetupIntent;
+use Stripe\PaymentIntent;
 use SilverStripe\Forms\Form;
+use Dompdf\FrameDecorator\Text;
+use SilverStripe\ORM\ArrayList;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\HiddenField;
+use SilverStripe\Security\Security;
 use SilverStripe\View\Requirements;
 use SilverStripe\Forms\LiteralField;
+use SilverStripe\Forms\DropdownField;
 use SilverStripe\Control\RequestHandler;
-use SilverStripe\Forms\TextField;
-use Stripe\PaymentIntent;
-use Stripe\SetupIntent;
+use SilverStripe\Forms\HeaderField;
 
 /**
  * Simple form that allows adding of a payment card via the stripe elements js API
@@ -32,7 +36,8 @@ class StripeCardForm extends Form
     public function __construct(
         RequestHandler $controller,
         string $name = self::DEFAULT_NAME,
-        bool $hide_address_fields = false
+        bool $hide_address_fields = false,
+        bool $add_existing_cards = false
     ) {
         Requirements::javascript("https://js.stripe.com/v3/");
         Requirements::javascript("i-lateral/silvercommerce-stripe-subscriptions:client/dist/stripe.js");
@@ -40,7 +45,7 @@ class StripeCardForm extends Form
         parent::__construct(
             $controller,
             $name,
-            $this->getDefaultFields($hide_address_fields),
+            $this->getDefaultFields($hide_address_fields, $add_existing_cards),
             $this->getDefaultActions()
         );
 
@@ -113,9 +118,13 @@ class StripeCardForm extends Form
         return $this->setAttribute('data-secret', $secret);
     }
 
-    protected function getDefaultFields(bool $hide_address_fields = false): FieldList
-    {
-        if ($hide_address_fields) {
+    protected function getDefaultFields(
+        bool $hide_address_fields = false,
+        bool $add_existing_cards
+    ): FieldList {
+        $member = Security::getCurrentUser();
+
+        if ($hide_address_fields === true) {
             $line_one = HiddenField::create('cardholder-lineone');
             $zip = HiddenField::create('cardholder-zip');
         } else {
@@ -129,19 +138,38 @@ class StripeCardForm extends Form
             );
         }
 
-        return FieldList::create(
+        $fields = FieldList::create(
             HiddenField::create('cardholder-name'),
             HiddenField::create('cardholder-email'),
             $line_one,
             $zip,
             HiddenField::create("intent"),
             HiddenField::create("intentid"),
-            HiddenField::create("back-url"),
-            LiteralField::create(
-                'StripeFields',
-                $this->renderWith(__NAMESPACE__ . '\StripePaymentFields')
-            )
+            HiddenField::create("back-url")
         );
+
+        if ($add_existing_cards === true && $member->getStripePaymentCards()->exists()) {
+            /** @var ArrayList */
+            $cards = $member->getStripePaymentCards();
+
+            $fields->add(
+                DropdownField::create(
+                    'existing-card',
+                    _t('StripeSubscriptions.UseExistingCard', 'Use an existing payment card')
+                )->setSource($cards->map('ID', 'CardNumber'))
+                ->setEmptyString( _t('StripeSubscriptions.SelectExistingCard', 'Select existing payment card'))
+            );
+
+            $fields->add(
+                HeaderField::create(
+                    'AddNewCardHeader',
+                    _t('StripeSubscriptions.OrAddNewCard', 'Or add a new card'),
+                    3
+                )
+            );
+        }
+
+        return $fields;
     }
 
     protected function getDefaultActions(): FieldList

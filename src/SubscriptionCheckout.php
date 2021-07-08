@@ -189,7 +189,7 @@ class SubscriptionCheckout extends Checkout
      */
     public function PaymentForm(): StripeCardForm
     {
-        $form = StripeCardForm::create($this, 'PaymentForm', true);
+        $form = StripeCardForm::create($this, 'PaymentForm', true, true);
         
         $form
             ->Actions()
