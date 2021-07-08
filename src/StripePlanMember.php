@@ -9,8 +9,9 @@ use SilverStripe\Security\Member;
 use SilverStripe\Control\Controller;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\FieldType\DBDatetime;
-use ilateral\SilverStripe\Users\Control\AccountController;
 use SilverCommerce\ContactAdmin\Model\Contact;
+use ilateral\SilverStripe\Users\Control\AccountController;
+use ilateral\SilverCommerce\StripeSubscriptions\StripeConnector;
 
 /**
  * Join object that handles mapping a Stripe Plan to a user.
@@ -26,6 +27,7 @@ class StripePlanMember extends DataObject
     private static $table_name = "StripePlanMember";
 
     private static $db = [
+        'Status' => 'Enum(array("active","past_due","unpaid","canceled","incomplete","incomplete_expired","trialing"))',
         'PlanID' => 'Varchar', // Stock ID
         'Expires' => 'Datetime',
         'SubscriptionID' => 'Varchar' // Stripe Subscription ID
@@ -35,7 +37,12 @@ class StripePlanMember extends DataObject
         'Contact' => Contact::class
     ];
 
+    private static $defaults = [
+        'Status' => 'incomplete'
+    ];
+
     private static $summary_fields = [
+        'Status',
         'PlanID',
         'Expires',
         'SubscriptionID'
@@ -45,12 +52,17 @@ class StripePlanMember extends DataObject
         'PlanID' => 'Plan'
     ];
 
+    public function isActive()
+    {
+        return $this->Status == 'active';
+    }
+
     /**
      * Generate a link to renew this subscription
      *
      * @return string
      */
-    public function getRenewLink()
+    public function getRenewLink(): string
     {
         $controller = Injector::inst()->get(AccountController::class);
 
@@ -66,7 +78,7 @@ class StripePlanMember extends DataObject
      *
      * @return string
      */
-    public function getCancelLink()
+    public function getCancelLink(): string
     {
         $controller = Injector::inst()->get(AccountController::class);
 
@@ -77,12 +89,26 @@ class StripePlanMember extends DataObject
         );
     }
 
+    public function cancelSubscription()
+    {
+        $this->Status = 'canceled';
+
+        /** @var Subscription */
+        $subscription = StripeConnector::retrieve(
+            Subscription::class,
+            $this->SubscriptionID
+        );
+        $subscription->cancel();
+
+        $this->write();
+    }
+
     /**
      * Return the current linked plan (or an empty object if none found)
      *
      * @return StripePlan
      */
-    public function getPlan()
+    public function getPlan(): StripePlan
     {
         $plan = StripePlan::get()->find('StockID', $this->PlanID);
 
@@ -98,18 +124,21 @@ class StripePlanMember extends DataObject
      *
      * @return \Stripe\Subscription
      */
-    public function getStripeSubscription()
+    public function getStripeSubscription(): Subscription
     {
-        StripeConnector::setStripeAPIKey();
-        return Subscription::retrieve(
-            [
-                'id' => $this->SubscriptionID,
-                'expand' => ['default_payment_method']
-            ]
+        return StripeConnector::retrieve(
+            Subscription::class,
+            $this->SubscriptionID,
+            ['expand' => ['default_payment_method.card']],
         );
     }
 
-    public function getDefaultPaymentMethod()
+    /**
+     * Get a textual representation of the default payment card
+     *
+     * @return string
+     */
+    public function getDefaultPaymentMethod(): string
     {
         $subscription = $this->getStripeSubscription();
         $card = $subscription->default_payment_method->card;
@@ -126,7 +155,7 @@ class StripePlanMember extends DataObject
      *
      * @return bool
      */
-    public function isExpired()
+    public function isExpired(): bool
     {
         $now = new DateTime(
             DBDatetime::now()->format(DBDatetime::ISO_DATETIME)
