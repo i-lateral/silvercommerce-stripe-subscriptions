@@ -95,7 +95,7 @@ class StripeConnector
     /**
      * Retrieve an existing record from API
      */
-    public static function retrieve(string $type, string $stripe_id): ApiResource
+    public static function retrieve(string $type, string $stripe_id, array $options = []): ApiResource
     {
         if (!is_a($type, ApiResource::class, true)) {
             throw new LogicException("Type must be a type of API Resopurce");
@@ -103,6 +103,6 @@ class StripeConnector
 
         self::setStripeAPIKey(self::KEY_SECRET);
 
-        return $type::retrieve($stripe_id);
+        return $type::retrieve(array_merge(['id' => $stripe_id], $options));
     }
 }
