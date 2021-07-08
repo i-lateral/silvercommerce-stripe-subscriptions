@@ -3,6 +3,9 @@
 namespace ilateral\SilverCommerce\StripeSubscriptions;
 
 use Exception;
+use Stripe\SetupIntent;
+use Stripe\Subscription;
+use Stripe\PaymentMethod;
 use SilverStripe\ORM\ArrayList;
 use SilverStripe\Core\Extension;
 use SilverStripe\View\ArrayData;
@@ -13,15 +16,15 @@ use SilverStripe\Core\Injector\Injector;
 use SilverCommerce\Checkout\Control\Checkout;
 use SilverCommerce\OrdersAdmin\Factory\OrderFactory;
 use Stripe\Checkout\Session as StripeCheckoutSession;
-use Stripe\PaymentMethod;
-use Stripe\SetupIntent;
-use Stripe\Subscription;
+use ilateral\SilverStripe\Users\Control\AccountController;
+use ilateral\SilverCommerce\StripeSubscriptions\StripePlanMember;
 
 class AccountControllerExtension extends Extension
 {
     private static $allowed_actions = [
         "paymentdetails",
         "addcard",
+        "StripeCardForm",
         "attachcard",
         "removecard",
         "subscriptions",
@@ -31,7 +34,7 @@ class AccountControllerExtension extends Extension
 
     public function paymentdetails()
     {
-        StripeConnector::setStripeAPIKey();
+        StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
         $member = Security::getCurrentUser();
         $stripe_id = $member->StripeCustomerID;
         $cards = ArrayList::create();
@@ -58,23 +61,23 @@ class AccountControllerExtension extends Extension
             );
         }
 
-        $this->getOwner()->customise(
-            [
-                "Title" => _t(
-                    "App.PaymentDetails",
-                    "Payment Details"
-                ),
-                "MetaTitle" => _t(
-                    "App.PaymentDetails",
-                    "Payment Details"
-                ),
-                "Content" => $this
-                    ->getOwner()
-                    ->renderWith('Includes\AccountPaymentDetails', ['Cards' => $cards])
-            ]
-        );
-
-        return $this->getOwner()->render();
+        return $this
+            ->getOwner()
+            ->customise(
+                [
+                    "Title" => _t(
+                        "StripeSubscriptions.PaymentDetails",
+                        "Payment Details"
+                    ),
+                    "MetaTitle" => _t(
+                        "StripeSubscriptions.PaymentDetails",
+                        "Payment Details"
+                    ),
+                    "Content" => $this
+                        ->getOwner()
+                        ->renderWith(__NAMESPACE__ . '\Includes\AccountPaymentDetails', ['Cards' => $cards])
+                ]
+            )->render();
     }
 
     /**
@@ -84,63 +87,59 @@ class AccountControllerExtension extends Extension
      */
     public function addcard()
     {
-        // Build a stripe checkout session and redirect
-        StripeConnector::setStripeAPIKey();
+        /** @var AccountController */
+        $owner = $this->getOwner();
         $member = Security::getCurrentUser();
-        $checkout = StripeCheckoutSession::create(
+        $contact = $member->Contact();
+
+        // Create a setup intent for the new card 
+        $intent = StripeConnector::createOrUpdate(
+            SetupIntent::class,
             [
+                'customer' => $contact->StripeID,
                 'payment_method_types' => ['card'],
-                'mode' => 'setup',
-                'setup_intent_data' => [
-                    'metadata' => ['customer_id' => $member->StripeCustomerID]
+                'payment_method_options' => [
+                    'card' => [
+                        'request_three_d_secure' => 'automatic'
+                    ]
                 ],
-                'success_url' => $this->getOwner()->AbsoluteLink('attachcard') . '?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => $this->getOwner()->AbsoluteLink('paymentdetails')
+                'usage' => 'off_session'
             ]
         );
-        $key = Config::inst()->get(StripePlanProduct::class, 'publish_key');
-        $session_id = $checkout->id;
 
-        Requirements::javascript("https://js.stripe.com/v3/");
-        Requirements::customScript(<<<JS
-var stripe = Stripe("$key");
-
-stripe
-    .redirectToCheckout({sessionId: "$session_id"})
-    .then(function (result) { alert(result.error.message); });
-JS
-        );
-
-        return $this->getOwner()->render();
-    }
-
-    /**
-     * Attach the card added via `addcard` to the current user and then redirect to payment
-     * details screen
-     *
-     * @return HTTPResponse
-     */
-    public function attachcard()
-    {
-        StripeConnector::setStripeAPIKey();
-        $member = Security::getCurrentUser();
-        $stripe_id = $member->StripeCustomerID;
-
-        // First, setup any newley added cards and attach to the current user
-        $session_id = $this->getOwner()->getRequest()->getVar('session_id');
-
-        if (!empty($session_id)) {
-            try {
-                $checkout = StripeCheckoutSession::retrieve($session_id);
-                $setup_intent = SetupIntent::retrieve($checkout->setup_intent);
-                $payment_method = PaymentMethod::retrieve($setup_intent->payment_method);
-                $payment_method->attach(['customer' => $stripe_id]);
-            } catch (Exception $e) {
-                return $this->getOwner()->httpError(500, "Error seting up card");
-            }
+        if (empty($intent) || !isset($intent->client_secret)) {
+            return $owner->httpError(500);
         }
 
-        return $this->getOwner()->redirect($this->getOwner()->Link('paymentdetails'));
+        $form = $this->StripeCardForm()
+            ->setPK(StripeConnector::getStripeAPIKey())
+            ->setIntent(StripeCardForm::INTENT_SETUP)
+            ->setSecret($intent->client_secret)
+            ->setBackURL($owner->Link('paymentdetails'))
+            ->loadDataFrom([
+                'cardholder-name' => $contact->FirstName . ' ' . $contact->Surname,
+                'cardholder-email' => $contact->Email
+            ]);
+
+        return $owner
+            ->customise(
+                [
+                    "Title" => _t(
+                        "StripeSubscriptions.AddNewCard",
+                        "Add New Card"
+                    ),
+                    "MetaTitle" => _t(
+                        "StripeSubscriptions.AddNewCard",
+                        "Add New Card"
+                    ),
+                    'Form' => $form
+                ]
+            )->render();
+    }
+
+    public function StripeCardForm(): StripeCardForm
+    {
+        return StripeCardForm::create($this->getOwner());
     }
 
     /**
@@ -150,38 +149,40 @@ JS
      */
     public function removecard()
     {
-        StripeConnector::setStripeAPIKey();
-        $card = $this->getOwner()->getRequest()->param('ID');
+        /** @var AccountController */
+        $owner = $this->getOwner();
+        $card_id = $owner->getRequest()->param('ID');
 
         try {
-            $payment_method = PaymentMethod::retrieve($card);
+            /** @var PaymentMethod */
+            $payment_method = StripeConnector::retrieve(PaymentMethod::class, $card_id);
             $payment_method->detach();
         } catch (Exception $e) {
-            return $this->getOwner()->httpError(500, $e->getMessage());
+            return $owner->httpError(500, $e->getMessage());
         }
 
-        return $this->getOwner()->redirect($this->getOwner()->Link('paymentdetails'));
+        return $owner->redirect($owner->Link('paymentdetails'));
     }
 
     public function subscriptions()
     {
-        $this->getOwner()->customise(
-            [
-                "Title" => _t(
-                    "App.Subscriptions",
-                    "Subscriptions"
-                ),
-                "MetaTitle" => _t(
-                    "App.Subscriptions",
-                    "Subscriptions"
-                ),
-                "Content" => $this
-                    ->getOwner()
-                    ->renderWith('Includes\AccountSubscriptions')
-            ]
-        );
-
-        return $this->getOwner()->render();
+        return $this
+            ->getOwner()
+            ->customise(
+                [
+                    "Title" => _t(
+                        "StripeSubscriptions.Subscriptions",
+                        "Subscriptions"
+                    ),
+                    "MetaTitle" => _t(
+                        "StripeSubscriptions.Subscriptions",
+                        "Subscriptions"
+                    ),
+                    "Content" => $this
+                        ->getOwner()
+                        ->renderWith(__NAMESPACE__ . '\Includes\AccountSubscriptions')
+                ]
+            )->render();
     }
 
     /**
@@ -189,19 +190,22 @@ JS
      */
     public function renewsubscription()
     {
-        $request = $this->getOwner()->getRequest();
+        /** @var AccountController */
+        $owner = $this->getOwner();
+
+        $request = $owner->getRequest();
         $product_id = $request->param('ID');
         $product = StripePlan::get()->find('StockID', $product_id);
 
         if (empty($product)) {
-            return $this->getOwner()->httpError('404');
+            return $owner->httpError('404');
         }
 
         $factory = OrderFactory::create();
         $factory->addItem($product);
         $factory->write();
 
-        $checkout = Injector::inst()->get(Checkout::class);
+        $checkout = Injector::inst()->get(SubscriptionCheckout::class);
         $checkout->setEstimate($factory->getOrder());
 
         return $this->getOwner()->redirect($checkout->Link());
@@ -212,13 +216,17 @@ JS
      */
     public function cancelsubscription()
     {
-        StripeConnector::setStripeAPIKey();
+        /** @var AccountController */
+        $owner = $this->getOwner();
+
         $member = Security::getCurrentUser();
-        $request = $this->getOwner()->getRequest();
+        $request = $owner->getRequest();
         $product_id = $request->param('ID');
         $subscription_id = $request->param('OtherID');
+
+        /** @var StripePlanMember */
         $plan = $member
-            ->StripePlans()
+            ->getStripePlans()
             ->filter(
                 [
                     'PlanID' => $product_id,
@@ -227,18 +235,16 @@ JS
             )->first();
 
         if (empty($plan)) {
-            return $this->getOwner()->httpError('500');
+            return $owner->httpError('404');
         }
 
         try {
-            $subscription = Subscription::retrieve($subscription_id);
-            $subscription->delete();
-            $plan->delete();
+            $plan->cancelSubscription();
         } catch (Exception $e) {
-            return $this->getOwner()->httpError(500);
+            return $owner->httpError(500, $e->getMessage());
         }
 
-        return $this->getOwner()->redirect($this->getOwner()->Link('subscriptions'));
+        return $owner->redirect($this->getOwner()->Link('subscriptions'));
     }
 
     public function updateAccountMenu($menu)
