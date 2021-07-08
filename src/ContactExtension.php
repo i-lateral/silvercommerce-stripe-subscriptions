@@ -2,11 +2,17 @@
 
 namespace ilateral\SilverCommerce\StripeSubscriptions;
 
+use ilateral\SilverStripe\Users\Control\AccountController;
 use Stripe\Customer;
+use Stripe\PaymentMethod;
+use SilverStripe\ORM\ArrayList;
 use SilverStripe\Security\Group;
+use SilverStripe\View\ArrayData;
 use SilverStripe\Security\Member;
 use SilverStripe\ORM\DataExtension;
 use SilverCommerce\ContactAdmin\Model\Contact;
+use SilverStripe\Control\Controller;
+use SilverStripe\Core\Injector\Injector;
 
 class ContactExtension extends DataExtension
 {
@@ -42,6 +48,50 @@ class ContactExtension extends DataExtension
         }
 
         return $data;
+    }
+
+    /**
+     * Get a list of payment cards for the current contact from the stripe API
+     *
+     * @return ArrayList
+     */
+    public function getStripePaymentCards(): ArrayList
+    {
+        /** @var Contact */
+        $owner = $this->getOwner();
+
+        StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
+        $stripe_id = $owner->StripeID;
+        $cards = ArrayList::create();
+
+        $raw_cards = PaymentMethod::all(
+            [
+                'customer' => $stripe_id,
+                'type' => 'card'
+            ]
+        );
+
+        // Loop through raw stripe card data for this
+        foreach ($raw_cards->data as $card) {
+            $remove_link = Controller::join_links(
+                Injector::inst()->get(AccountController::class, true)->Link('removecard'),
+                $card->id
+            );
+
+            $cards->add(
+                ArrayData::create(
+                    [
+                        'ID' => $card->id,
+                        'CardNumber' => str_pad($card->card->last4, 16, '*', STR_PAD_LEFT),
+                        'Expires' => $card->card->exp_month . '/' . $card->card->exp_year,
+                        'Brand' => $card->card->brand,
+                        'RemoveLink' => $remove_link
+                    ]
+                )
+            );
+        }
+
+        return $cards;
     }
 
     public function onAfterDelete()

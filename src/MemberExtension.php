@@ -4,6 +4,7 @@ namespace ilateral\SilverCommerce\StripeSubscriptions;
 
 use Stripe\Customer;
 use SilverStripe\ORM\DataList;
+use SilverStripe\ORM\ArrayList;
 use SilverStripe\Security\Group;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Security\Member;
@@ -47,6 +48,19 @@ class MemberExtension extends DataExtension
             ->getOwner()
             ->Contact()
             ->StripePlans();
+    }
+
+    /**
+     * Get a list of payment cards for the current contact from the stripe API
+     *
+     * @return ArrayList
+     */
+    public function getStripePaymentCards(): ArrayList
+    {
+        return $this
+            ->getOwner()
+            ->Contact()
+            ->getStripePaymentCards();
     }
 
     public function updateCMSFields(\SilverStripe\Forms\FieldList $fields)
