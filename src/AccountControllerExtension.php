@@ -36,30 +36,7 @@ class AccountControllerExtension extends Extension
     {
         StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
         $member = Security::getCurrentUser();
-        $stripe_id = $member->StripeCustomerID;
-        $cards = ArrayList::create();
-
-        $raw_cards = PaymentMethod::all(
-            [
-                'customer' => $stripe_id,
-                'type' => 'card'
-            ]
-        );
-
-        // Loop through raw stripe card data for this
-        foreach ($raw_cards->data as $card) {
-            $cards->add(
-                ArrayData::create(
-                    [
-                        'ID' => $card->id,
-                        'CardNumber' => str_pad($card->card->last4, 16, '*', STR_PAD_LEFT),
-                        'Expires' => $card->card->exp_month . '/' . $card->card->exp_year,
-                        'Brand' => $card->card->brand,
-                        'RemoveLink' => $this->getOwner()->Link('removecard') . '/' . $card->id
-                    ]
-                )
-            );
-        }
+        $cards = $member->getStripePaymentCards();
 
         return $this
             ->getOwner()
@@ -75,7 +52,10 @@ class AccountControllerExtension extends Extension
                     ),
                     "Content" => $this
                         ->getOwner()
-                        ->renderWith(__NAMESPACE__ . '\Includes\AccountPaymentDetails', ['Cards' => $cards])
+                        ->renderWith(
+                            __NAMESPACE__ . '\Includes\AccountPaymentDetails',
+                            ['Cards' => $cards]
+                        )
                 ]
             )->render();
     }
