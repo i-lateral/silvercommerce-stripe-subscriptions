@@ -16,20 +16,22 @@
             <div class="clear"><!-- --></div>
         </fieldset>
 
-        <div id="stripe-card-elements" class="row pt-2 pb-4">
-            <div class="field col-12">
-                <div id="stripe-card-number" class="stripe-field-container border-bottom"></div>
-                <label for="stripe-card-number"><%t StripeSubscriptions.CardNumber "Card number" %></label>
+        <div class="pt-4 pb-4">
+            <div id="stripe-card-elements" class="row">
+                <div class="field col-12">
+                    <div id="stripe-card-number" class="stripe-field-container border-bottom"></div>
+                    <label for="stripe-card-number"><%t StripeSubscriptions.CardNumber "Card number" %></label>
+                </div>
             </div>
-        </div>
-        <div class="row">
-            <div class="col-6">
-                <div id="stripe-card-expiry" class="stripe-field-container border-bottom"></div>
-                <label for="stripe-card-expiry"><%t StripeSubscriptions.Expiration "Expiration" %></label>
-            </div>
-            <div class="col-6">
-                <div id="stripe-card-cvc" class="stripe-field-container border-bottom"></div>
-                <label for="stripe-card-cvc"><%t StripeSubscriptions.CVC "CVC" %></label>
+            <div class="row">
+                <div class="col-6">
+                    <div id="stripe-card-expiry" class="stripe-field-container border-bottom"></div>
+                    <label for="stripe-card-expiry"><%t StripeSubscriptions.Expiration "Expiration" %></label>
+                </div>
+                <div class="col-6">
+                    <div id="stripe-card-cvc" class="stripe-field-container border-bottom"></div>
+                    <label for="stripe-card-cvc"><%t StripeSubscriptions.CVC "CVC" %></label>
+                </div>
             </div>
         </div>
 
