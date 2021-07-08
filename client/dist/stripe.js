@@ -1,6 +1,6 @@
-function registerElements(elements, stripe) {
-    var form = document.getElementById('Form_PaymentForm');
-    var pay_button = document.getElementById('Form_PaymentForm_action_doSubscribe')
+function registerElements(elements, stripe, form) {
+    var id = form.id;
+    var pay_button = document.getElementById(id + '_action_doSubmitCardForm');
 
     function enablePayButton() {
         pay_button.removeAttribute('disabled');
@@ -11,8 +11,7 @@ function registerElements(elements, stripe) {
     }
 
     function triggerBrowserValidation() {
-        // The only way to trigger HTML5 form validation UI is to fake a user submit
-        // event.
+        // The only way to trigger HTML5 form validation UI is to fake a user submit event.
         var submit = document.createElement('input');
         submit.type = 'submit';
         submit.style.display = 'none';
@@ -57,80 +56,101 @@ function registerElements(elements, stripe) {
             return;
         }
 
-        // Gather additional customer data we may have collected in our form.
-        var cardholdername = document.getElementById('Form_PaymentForm_cardholder-name');
-        var cardholderemail = document.getElementById('Form_PaymentForm_cardholder-email');
-        var cardholderlineone = document.getElementById('Form_PaymentForm_cardholder-lineone');
-        var cardholderzip = document.getElementById('Form_PaymentForm_cardholder-zip');
+        // Gather additional data we have collected in our form.
+        var intent_type = document.getElementById(id + '_intent').value;
+        var cardholdername = document.getElementById(id + '_cardholder-name');
+        var cardholderemail = document.getElementById(id + '_cardholder-email');
+        var cardholderlineone = document.getElementById(id + '_cardholder-lineone');
+        var cardholderzip = document.getElementById(id + '_cardholder-zip');
         var secret = form.dataset.secret;
 
-        // Use Stripe.js to create a token. We only need to pass in one Element
-        // from the Element group in order to create a token. We can also pass
-        // in the additional customer data we collected in our form.
-        stripe
-            .confirmCardPayment(
-                secret,
-                {
-                    payment_method: {
-                        card: elements[0],
-                        billing_details: {
-                            name: cardholdername.value,
-                            email: cardholderemail.value,
-                            address: {
-                                "line1": cardholderlineone.value,
-                                "postal_code": cardholderzip.value
-                            }
-                        }
+        var setup_data = {
+            payment_method: {
+                card: elements[0],
+                billing_details: {
+                    name: cardholdername.value,
+                    email: cardholderemail.value,
+                    address: {
+                        "line1": cardholderlineone.value,
+                        "postal_code": cardholderzip.value
                     }
                 }
-            ).then(function(result) {
-                if (result.error) {
-                    disablePayButton();
-                    alert(result.error.message);
-                } else {
-                    document.getElementById('Form_PaymentForm_payment-intent').value = result.paymentIntent.id;
-                    form.submit();
-                }
-            });
+            }
+        };
+
+        // Use Stripe.js to either confirm card payment or setup and return an ID
+        if (intent_type == 'payment') {
+            stripe
+                .confirmCardPayment(secret, setup_data)
+                .then(function(result) {
+                    if (result.error) {
+                        disablePayButton();
+                        alert(result.error.message);
+                    } else {
+                        document.getElementById(id + '_intentid').value = result.paymentIntent.id;
+                        form.submit();
+                    }
+                });
+        } else {
+            stripe
+                .confirmCardSetup(secret, setup_data)
+                .then(function(result) {
+                    if (result.error) {
+                        disablePayButton();
+                        alert(result.error.message);
+                    } else {
+                        document.getElementById(id + '_intentid').value = result.setupIntent.id;
+                        form.submit();
+                    }
+                });
+        }
+        
+        
     });
 
     disablePayButton();
 }
 
+function setupStripeForm(form) {
+    // Create a Stripe client and an instance of elements
+    var stripe_pk = form.dataset.stripepk;
+    var stripe = Stripe(stripe_pk);
+    var elements = stripe.elements();
+
+    // Custom styling can be passed to options when creating an Element.
+    // (Note that this demo uses a wider set of styles than the guide below.)
+    var style = {
+        base: {
+            color: '#000000',
+            fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+            fontSize: '16px',
+            fontSmoothing: 'antialiased'
+        },
+        invalid: {
+            color: '#fa755a',
+            iconColor: '#fa755a'
+        }
+    };
+
+    var cardNumber = elements.create('cardNumber', {style: style});
+    cardNumber.mount('#stripe-card-number');
+
+    var cardExpiry = elements.create('cardExpiry', {style: style});
+    cardExpiry.mount('#stripe-card-expiry');
+
+    var cardCvc = elements.create('cardCvc', {style: style});
+    cardCvc.mount('#stripe-card-cvc');
+
+    registerElements([cardNumber, cardExpiry, cardCvc], stripe, form);
+}
+
 window.onload = function() {
-    var form = document.getElementById('Form_PaymentForm');
+    var all_forms = document.getElementsByTagName("form");
+    for(var i=0; i < all_forms.length;i++) {
+        var form = all_forms[i];
 
-    if (document.contains(form)) {
-
-        // Create a Stripe client and an instance of elements
-        var stripe_pk = form.dataset.stripepk;
-        var stripe = Stripe(stripe_pk);
-        var elements = stripe.elements();
-    
-        // Custom styling can be passed to options when creating an Element.
-        // (Note that this demo uses a wider set of styles than the guide below.)
-        var style = {
-            base: {
-                color: '#000000',
-                fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
-                fontSize: '16px',
-                fontSmoothing: 'antialiased'
-            },
-            invalid: {
-                color: '#fa755a',
-                iconColor: '#fa755a'
-            }
-        };
-    
-        var cardNumber = elements.create('cardNumber', {style: style});
-        cardNumber.mount('#stripe-card-number');
-    
-        var cardExpiry = elements.create('cardExpiry', {style: style});
-        cardExpiry.mount('#stripe-card-expiry');
-    
-        var cardCvc = elements.create('cardCvc', {style: style});
-        cardCvc.mount('#stripe-card-cvc');
-    
-        registerElements([cardNumber, cardExpiry, cardCvc], stripe);
+        if (form.dataset.stripecardform !== undefined) {
+            setupStripeForm(form);
+        }
     }
 }
