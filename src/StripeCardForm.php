@@ -147,7 +147,7 @@ class StripeCardForm extends Form
     protected function getDefaultActions(): FieldList
     {
         return FieldList::create(
-            FormAction::create('doSubmitCardForm', _t('StripeSubscriptions.SignUpNow', "Sign Up Now"))
+            FormAction::create('doSubmitCardForm', _t('StripeSubscriptions.AddNewCard', "Add New Card"))
                 ->setUseButtonTag(true)
                 ->addExtraClass('btn btn-lg btn-primary w-100')
         );
