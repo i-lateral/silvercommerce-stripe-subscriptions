@@ -24,9 +24,17 @@ use Symbiote\GridFieldExtensions\GridFieldAddNewInlineButton;
  */
 class MemberExtension extends DataExtension
 {
-    private static $db = [
+    private static $casting = [
         'StripeCustomerID' => 'Varchar'
     ];
+
+    public function getStripeCustomerID(): string
+    {
+        return $this
+            ->getOwner()
+            ->Contact()
+            ->StripeID;
+    }
 
     /**
      * Return a list of stripe plans from the attached contact
@@ -37,7 +45,7 @@ class MemberExtension extends DataExtension
     {
         return $this
             ->getOwner()
-            ->Customer()
+            ->Contact()
             ->StripePlans();
     }
 
@@ -80,7 +88,7 @@ class MemberExtension extends DataExtension
         }
     }
 
-    public function getStripeData()
+    public function getStripeData(): array
     {
         return [
             'email' => $this->getOwner()->Email,
@@ -90,7 +98,7 @@ class MemberExtension extends DataExtension
 
     public function onAfterDelete()
     {
-        foreach ($this->getOwner()->StripePlans() as $plan) {
+        foreach ($this->getOwner()->getStripePlans() as $plan) {
             $plan->delete();
         }
     }
@@ -128,7 +136,7 @@ class MemberExtension extends DataExtension
         $sub_group = Group::get()->find('Code', 'subscriber');
 
         if (isset($sub_group)) {
-            if ($owner->StripePlans()->exists()) {
+            if ($owner->getStripePlans()->exists()) {
                 $owner->Groups()->add($sub_group);
             } else {
                 $owner->Groups()->remove($sub_group);
@@ -136,7 +144,7 @@ class MemberExtension extends DataExtension
         }
     }
 
-    public function isSubscribed()
+    public function isSubscribed(): bool
     {
         $owner = $this->getOwner();
         $subscriber = $owner->Groups()->find('Code', 'subscriber');
