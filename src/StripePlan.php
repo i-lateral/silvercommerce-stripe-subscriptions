@@ -5,8 +5,6 @@ namespace ilateral\SilverCommerce\StripeSubscriptions;
 use Product;
 use DateTime;
 use Stripe\Plan;
-use Stripe\Stripe;
-use LogicException;
 use NumberFormatter;
 use SilverStripe\i18n\i18n;
 use SilverStripe\Forms\FieldList;
@@ -14,7 +12,6 @@ use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\Security\Member;
 use Stripe\Exception\InvalidRequestException;
-use Stripe\StripeClient;
 
 /**
  * @property string Interval
