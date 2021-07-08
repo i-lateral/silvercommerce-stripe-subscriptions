@@ -2,26 +2,23 @@
 
 namespace ilateral\SilverCommerce\StripeSubscriptions;
 
+use Exception;
+use LogicException;
 use Stripe\Customer;
-use Stripe\SetupIntent;
 use Stripe\Subscription;
 use Stripe\PaymentIntent;
-use SilverStripe\View\HTML;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Security\Member;
-use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\HeaderField;
 use SilverStripe\Forms\HiddenField;
 use SilverStripe\Security\Security;
-use SilverStripe\View\Requirements;
 use SilverStripe\Core\Config\Config;
-use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\CompositeField;
 use SilverCommerce\Checkout\Control\Checkout;
 use SilverCommerce\ContactAdmin\Model\Contact;
 use SilverStripe\Forms\ConfirmedPasswordField;
-use Stripe\Checkout\Session as StripeCheckoutSession;
+use ilateral\SilverCommerce\StripeSubscriptions\StripeCardForm;
 
 /**
  * Add extra actions to the checkout to handle stripe payment flow
@@ -51,23 +48,92 @@ class SubscriptionCheckout extends Checkout
      */
     public function payment()
     {
-        $order = $this->getEstimate();
-        /** @var Contact */
-        $contact = $order->Customer();
-
-        $stripe_obj = StripeConnector::createOrUpdate(
-            Customer::class,
-            $contact->getStripeData(),
-            $contact->StripeID
-        );
-
-        // If not currently in stripe, connect now
-        if (isset($stripe_obj) && isset($stripe_obj->id)) {
-            $contact->StripeID = $stripe_obj->id;
-            $contact->write();
+        // If no estimate found, generate error
+        if (!$this->hasEstimate()) {
+            return $this->redirect($this->Link("noestimate"));
         }
 
-        return parent::payment();
+        $estimate = $this->getEstimate();
+        $key = StripeConnector::getStripeAPIKey();
+
+        // If estimate does not have a shipping address, restart checkout
+        if (empty(trim($estimate->BillingAddress))) {
+            return $this->redirect($this->Link());
+        }
+
+        // If estimate is deliverable and has no billing details,
+        // restart checkout
+        if ($estimate->isDeliverable() && empty(trim($estimate->DeliveryAddress))) {
+            return $this->redirect($this->Link());
+        }
+
+        if (!$estimate->Items()->exists()) {
+            return $this->httpError(500, "Invalid products");
+        }
+
+        // Setup customer and subscription and setup payment form
+        try {
+            /** @var Contact */
+            $contact = $estimate->Customer();
+
+            $stripe_obj = StripeConnector::createOrUpdate(
+                Customer::class,
+                $contact->getStripeData(),
+                $contact->StripeID
+            );
+
+            // If not currently in stripe, connect now
+            if (isset($stripe_obj) && isset($stripe_obj->id)) {
+                $contact->StripeID = $stripe_obj->id;
+                $contact->write();
+            }
+
+            // Now setup a subscription and get payment intent
+            $sub = StripeConnector::createOrUpdate(
+                Subscription::class,
+                $estimate->getStripeData()
+            );
+
+
+            if (!isset($sub) || !isset($sub->latest_invoice)
+                || !isset($sub->latest_invoice->payment_intent)
+                || !isset($sub->latest_invoice->payment_intent->client_secret)
+            ) {
+                throw new LogicException("Error setting up payment");
+            }
+
+            $estimate->StripeSubscriptionID = $sub->id;
+            $estimate->write();
+
+            $gateway_form = $this->GatewayForm();
+            $payment_form = $this
+                ->PaymentForm()
+                ->setPK($key)
+                ->setIntent(StripeCardForm::INTENT_PAYMENT)
+                ->setSecret($sub->latest_invoice->payment_intent->client_secret)
+                ->loadDataFrom([
+                    'cardholder-name' => $estimate->FirstName . ' ' . $estimate->Surname,
+                    'cardholder-email' => $estimate->Email,
+                    'cardholder-lineone' => $estimate->Address1,
+                    'cardholder-zip' => $estimate->PostCode
+                ]);
+
+            $this->customise(
+                [
+                    "GatewayForm" => $gateway_form,
+                    "PaymentForm" => $payment_form
+                ]
+            );
+
+            $this->extend("onBeforePayment");
+
+            return $this->render();
+        } catch (Exception $e) {
+            return $this->httpError(
+                400,
+                $e->getMessage()
+            );
+        }
     }
 
     /**
@@ -121,62 +187,14 @@ class SubscriptionCheckout extends Checkout
     /**
      * Overwrite default form and add a stripe setup form
      */
-    public function PaymentForm()
+    public function PaymentForm(): StripeCardForm
     {
-        Requirements::javascript("https://js.stripe.com/v3/");
-        Requirements::javascript("i-lateral/silvercommerce-stripe-subscriptions:client/dist/stripe.js");
-
-        $key = StripeConnector::getStripeAPIKey();
-        $estimate = $this->getEstimate();
-
-        if (!$estimate->Items()->exists()) {
-            return $this->httpError(500, "Invalid products");
-        }
-
-        // Now setup a subscription and get payment intent
-        $sub = StripeConnector::createOrUpdate(
-            Subscription::class,
-            $estimate->getStripeData()
-        );
-
-        if (!isset($sub) || !isset($sub->latest_invoice)
-            || !isset($sub->latest_invoice->payment_intent)
-            || !isset($sub->latest_invoice->payment_intent->client_secret)
-        ) {
-            return $this->httpError(500, "Error setting up payment");
-        }
-
-        $estimate->StripeSubscriptionID = $sub->id;
-        $estimate->write();
-
-        $form = Form::create(
-            $this,
-            'PaymentForm',
-            FieldList::create(
-                HiddenField::create('cardholder-name')
-                    ->setValue($estimate->FirstName . ' ' . $estimate->Surname),
-                HiddenField::create('cardholder-email')
-                    ->setValue($estimate->Email),
-                HiddenField::create('cardholder-lineone')
-                    ->setValue($estimate->Address1),
-                HiddenField::create('cardholder-zip')
-                    ->setValue($estimate->PostCode),
-                HiddenField::create("payment-intent"),
-                LiteralField::create(
-                    'StripeFields',
-                    $this->renderWith(__NAMESPACE__ . '\StripePaymentFields')
-                )
-            ),
-            FieldList::create(
-                FormAction::create('doSubscribe', _t('StripeSubscriptions.SignUpNow', "Sign Up Now"))
-                    ->setUseButtonTag(true)
-                    ->addExtraClass('btn btn-lg btn-primary w-100')
-            )
-        );
-
+        $form = StripeCardForm::create($this, 'PaymentForm', true);
+        
         $form
-            ->setAttribute('data-stripepk', $key)
-            ->setAttribute('data-secret', $sub->latest_invoice->payment_intent->client_secret);
+            ->Actions()
+            ->fieldByName('action_doSubmitCardForm')
+            ->setTitle(_t('StripeSubscriptions.SignUpNow', "Sign Up Now"));
 
         return $form;
     }
@@ -188,19 +206,22 @@ class SubscriptionCheckout extends Checkout
      * @param Form $form Current form
      *
      */
-    public function doSubscribe(array $data, Form $form)
+    public function doSubmitCardForm(array $data, StripeCardForm $form)
     {
         $estimate = $this->getEstimate();
         $subscription_id = $estimate->StripeSubscriptionID;
         $success_link = $this->getOwner()->Link('complete');
         $error_link = $this->Link('complete/error');
 
-        if (!isset($data['payment-intent'])) {
+        if (!isset($data['intentid']) || !isset($data['intent'])) {
             return $this->redirect($error_link);
         }
 
-        $intent_id = $data['payment-intent'];
-        $intent = StripeConnector::retrieve(PaymentIntent::class, $intent_id);
+        $intent_id = $data['intentid'];
+        $intent = StripeConnector::retrieve(
+            $form->getClassFromIntent($data['intent']),
+            $intent_id
+        );
 
         if (empty($intent)) {
             return $this->redirect($error_link);
@@ -226,7 +247,7 @@ class SubscriptionCheckout extends Checkout
         foreach ($invoice->Items() as $item) {
             $product = $item->findStockItem();
 
-            if (isset($product) && isset($contact) && is_a($product, StripePlanProduct::class)) {
+            if (isset($product) && isset($contact) && is_a($product, StripePlan::class)) {
                 $plan = $contact
                     ->StripePlans()
                     ->find('SubscriptionID', $subscription_id);
@@ -241,8 +262,10 @@ class SubscriptionCheckout extends Checkout
                     );
 
                     $plan->ContactID = $contact->ID;
-                    $plan->write();
                 }
+
+                $plan->Status = 'active';
+                $plan->write();
             }
         }
 
