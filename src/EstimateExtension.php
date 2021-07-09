@@ -13,7 +13,7 @@ class EstimateExtension extends DataExtension
 {
     private static $db = [
         'StripeSubscriptionID' => 'Varchar',
-        'StripeSessionID' => 'Varchar'
+        'StripeIntentID' => 'Varchar'
     ];
 
     public function getStripeData(): array
@@ -27,10 +27,10 @@ class EstimateExtension extends DataExtension
         $product = $owner->Items()->first()->FindStockItem();
 
         $data = [
-            'items' => [],
             'payment_behavior' => 'default_incomplete',
             'expand' => ['latest_invoice.payment_intent'],
         ];
+        $items = [];
 
         foreach ($owner->Items() as $line_item) {
             $product = $line_item->FindStockItem();
@@ -39,7 +39,11 @@ class EstimateExtension extends DataExtension
                 continue;
             }
 
-            $data['items'][] = ['price' => $product->StripeID];
+            $items[] = ['price' => $product->StripeID];
+        }
+
+        if (count($items) > 0) {
+            $data['items'] = $items;
         }
 
         if (isset($customer) && !empty($customer->StripeID)) {
