@@ -77,7 +77,7 @@ class StripeConnector
     public static function createOrUpdate(string $type, array $data, string $stripe_id = null): ApiResource
     {
         if (!is_a($type, ApiResource::class, true)) {
-            throw new LogicException("Type must be a type of API Resopurce");
+            throw new LogicException("Type must be a type of API Resource");
         }
 
         self::setStripeAPIKey(self::KEY_SECRET);
@@ -98,7 +98,7 @@ class StripeConnector
     public static function retrieve(string $type, string $stripe_id, array $options = []): ApiResource
     {
         if (!is_a($type, ApiResource::class, true)) {
-            throw new LogicException("Type must be a type of API Resopurce");
+            throw new LogicException("Type must be a type of API Resource");
         }
 
         self::setStripeAPIKey(self::KEY_SECRET);
