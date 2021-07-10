@@ -148,7 +148,9 @@ class StripeCardForm extends Form
             HiddenField::create("back-url")
         );
 
-        if ($add_existing_cards === true && $member->getStripePaymentCards()->exists()) {
+        if ($add_existing_cards === true && !empty($member)
+            && $member->getStripePaymentCards()->exists()
+        ) {
             /** @var ArrayList */
             $cards = $member->getStripePaymentCards();
 
