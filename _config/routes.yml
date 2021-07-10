@@ -1,8 +1,8 @@
 ---
-Name: stripesubscriptionroutes
+Name: stripepaymentsroutes
 After: framework/routes#rootroutes
 ---
 SilverStripe\Control\Director:
   rules:
+    'stripecheckout//$Action/$ID/$OtherID': 'ilateral\SilverCommerce\StripeSubscriptions\StripeCheckout'
     'setupsubscription//$Action/$ID/$OtherID': 'ilateral\SilverCommerce\StripeSubscriptions\SubscriptionCheckout'
-

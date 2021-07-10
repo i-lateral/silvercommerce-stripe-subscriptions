@@ -1,0 +1,6 @@
+---
+Name: stripepaymentsconfig
+---
+
+SilverCommerce\ShoppingCart\Control\ShoppingCart:
+  checkout_class: ilateral\SilverCommerce\StripeSubscriptions\StripeCheckout
