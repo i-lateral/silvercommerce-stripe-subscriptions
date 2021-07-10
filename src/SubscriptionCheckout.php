@@ -6,16 +6,12 @@ use Exception;
 use LogicException;
 use Stripe\Customer;
 use Stripe\Subscription;
-use Stripe\PaymentIntent;
 use SilverStripe\Forms\Form;
-use SilverStripe\Forms\FieldList;
 use SilverStripe\Security\Member;
 use SilverStripe\Forms\HeaderField;
-use SilverStripe\Forms\HiddenField;
 use SilverStripe\Security\Security;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Forms\CompositeField;
-use SilverCommerce\Checkout\Control\Checkout;
 use SilverCommerce\ContactAdmin\Model\Contact;
 use SilverStripe\Forms\ConfirmedPasswordField;
 use ilateral\SilverCommerce\StripeSubscriptions\StripeCardForm;
@@ -23,9 +19,8 @@ use ilateral\SilverCommerce\StripeSubscriptions\StripeCardForm;
 /**
  * Add extra actions to the checkout to handle stripe payment flow
  */
-class SubscriptionCheckout extends Checkout
+class SubscriptionCheckout extends StripeCheckout
 {
-
     /**
      * URL Used to generate links to this controller.
      *
@@ -168,28 +163,11 @@ class SubscriptionCheckout extends Checkout
     }
 
     /**
-     * Gateway form isn't required in this checkout session
-     *
-     * @return Form
-     */
-    public function GatewayForm()
-    {
-        return Form::create(
-            $this,
-            'GatewayForm',
-            FieldList::create(
-                HiddenField::create('PaymentMethodID')
-            ),
-            FieldList::create()
-        );
-    }
-
-    /**
      * Overwrite default form and add a stripe setup form
      */
     public function PaymentForm(): StripeCardForm
     {
-        $form = StripeCardForm::create($this, 'PaymentForm', true, true);
+        $form = parent::PaymentForm();
         
         $form
             ->Actions()
