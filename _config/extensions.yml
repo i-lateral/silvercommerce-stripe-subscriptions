@@ -1,5 +1,5 @@
 ---
-Name: stripesubscriptionextensions
+Name: stripepaymentsextensions
 ---
 SilverStripe\Security\Member:
   extensions:
