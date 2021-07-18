@@ -12,6 +12,8 @@ use SilverStripe\ORM\FieldType\DBDatetime;
 use SilverCommerce\ContactAdmin\Model\Contact;
 use ilateral\SilverStripe\Users\Control\AccountController;
 use ilateral\SilverCommerce\StripeSubscriptions\StripeConnector;
+use SilverCommerce\OrdersAdmin\Model\Estimate;
+use SilverCommerce\OrdersAdmin\Model\Invoice;
 
 /**
  * Join object that handles mapping a Stripe Plan to a user.
@@ -35,6 +37,10 @@ class StripePlanMember extends DataObject
 
     private static $has_one = [
         'Contact' => Contact::class
+    ];
+
+    private static $has_many = [
+        'Orders' => Estimate::class
     ];
 
     private static $defaults = [

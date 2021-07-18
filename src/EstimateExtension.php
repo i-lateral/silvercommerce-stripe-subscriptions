@@ -16,6 +16,10 @@ class EstimateExtension extends DataExtension
         'StripeIntentID' => 'Varchar'
     ];
 
+    private static $has_one = [
+        'Subscription' => StripePlanMember::class
+    ];
+
     public function getStripeData(): array
     {
         /** @var Estimate */
