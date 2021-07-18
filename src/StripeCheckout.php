@@ -63,15 +63,15 @@ class StripeCheckout extends Checkout
             /** @var Contact */
             $contact = $estimate->Customer();
 
-            $stripe_obj = StripeConnector::createOrUpdate(
+            $stripe_customer = StripeConnector::createOrUpdate(
                 Customer::class,
                 $contact->getStripeData(),
                 $contact->StripeID
             );
 
             // If not currently in stripe, connect now
-            if (isset($stripe_obj) && isset($stripe_obj->id)) {
-                $contact->StripeID = $stripe_obj->id;
+            if (isset($stripe_customer) && isset($stripe_customer->id)) {
+                $contact->StripeID = $stripe_customer->id;
                 $contact->write();
             }
 
@@ -108,6 +108,7 @@ class StripeCheckout extends Checkout
                         "Payment for Order: {ordernumber}",
                         ['ordernumber' => $estimate->FullRef]
                     ),
+                    'customer' => $stripe_customer->id,
                     'metadata' => ['integration_check' => 'accept_a_payment'],
                 ]
             );
