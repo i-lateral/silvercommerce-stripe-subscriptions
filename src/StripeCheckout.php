@@ -10,6 +10,8 @@ use Stripe\PaymentIntent;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\HiddenField;
+use SilverStripe\Core\Config\Config;
+use SilverStripe\Omnipay\Model\Payment;
 use SilverStripe\SiteConfig\SiteConfig;
 use SilverCommerce\Checkout\Control\Checkout;
 use ilateral\SilverCommerce\StripeSubscriptions\StripeCardForm;
@@ -71,6 +73,20 @@ class StripeCheckout extends Checkout
             if (isset($stripe_obj) && isset($stripe_obj->id)) {
                 $contact->StripeID = $stripe_obj->id;
                 $contact->write();
+            }
+
+            // If estimate has zero value, then automatically generate
+            // a payment, mark as paid and complete
+            if ($estimate->getTotal() == 0) {
+                $zero_gateway = $this->config()->zero_gateway;
+        
+                Config::modify()->set(
+                    Payment::class,
+                    'allowed_gateways',
+                    [$zero_gateway]
+                );
+            
+                return $this->doSubmitPayment([], $this->PaymentForm());
             }
 
             // Get three digit currency code

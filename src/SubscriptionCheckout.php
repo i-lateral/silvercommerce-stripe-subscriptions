@@ -83,12 +83,25 @@ class SubscriptionCheckout extends StripeCheckout
                 $contact->write();
             }
 
+            // If estimate has zero value, then automatically generate
+            // a payment, mark as paid and complete
+            if ($estimate->getTotal() == 0) {
+                $zero_gateway = $this->config()->zero_gateway;
+        
+                Config::modify()->set(
+                    Payment::class,
+                    'allowed_gateways',
+                    [$zero_gateway]
+                );
+            
+                return $this->doSubmitPayment([], $this->PaymentForm());
+            }
+
             // Now setup a subscription and get payment intent
             $sub = StripeConnector::createOrUpdate(
                 Subscription::class,
                 $estimate->getStripeData()
             );
-
 
             if (!isset($sub) || !isset($sub->latest_invoice)
                 || !isset($sub->latest_invoice->payment_intent)
