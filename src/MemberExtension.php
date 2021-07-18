@@ -29,7 +29,7 @@ class MemberExtension extends DataExtension
         'StripeCustomerID' => 'Varchar'
     ];
 
-    public function getStripeCustomerID(): string
+    public function getStripeCustomerID()
     {
         return $this
             ->getOwner()
