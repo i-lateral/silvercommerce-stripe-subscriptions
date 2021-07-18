@@ -244,8 +244,12 @@ class SubscriptionCheckout extends StripeCheckout
 
                 $plan->Status = 'active';
                 $plan->write();
+
+                $invoice->SubscriptionID = $plan->ID;
             }
         }
+
+        $invoice->write();
 
         // Write member to setup relevent groups
         $member->write();
