@@ -75,7 +75,7 @@ class WebhookEndpoint extends Controller
         $event = $this->event;
         
         // If event is invalid, return error
-        if ($event->Type != Event::CUSTOMER_SUBSCRIPTION_UPDATED
+        if ($event->type != Event::CUSTOMER_SUBSCRIPTION_UPDATED
             || !isset($event->data) || !isset($event->data->object)
             || !is_a($event->data->object, Subscription::class, true)
         ) {
