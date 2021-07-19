@@ -2,7 +2,6 @@
 
 namespace ilateral\SilverCommerce\StripeSubscriptions;
 
-use ilateral\SilverStripe\Users\Control\AccountController;
 use Stripe\Customer;
 use Stripe\PaymentMethod;
 use SilverStripe\ORM\ArrayList;
@@ -10,9 +9,11 @@ use SilverStripe\Security\Group;
 use SilverStripe\View\ArrayData;
 use SilverStripe\Security\Member;
 use SilverStripe\ORM\DataExtension;
-use SilverCommerce\ContactAdmin\Model\Contact;
 use SilverStripe\Control\Controller;
 use SilverStripe\Core\Injector\Injector;
+use SilverCommerce\ContactAdmin\Model\Contact;
+use ilateral\SilverStripe\Users\Control\AccountController;
+use ilateral\SilverCommerce\StripeSubscriptions\StripeConnector;
 
 class ContactExtension extends DataExtension
 {
@@ -117,6 +118,23 @@ class ContactExtension extends DataExtension
 
         if (empty($group)) {
             return;
+        }
+
+        // Push or update this contact into stripe
+        StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
+
+        $customer = StripeConnector::createOrUpdate(
+            Customer::class,
+            $owner->getStripeData(),
+            $owner->StripeCustomerID
+        );
+
+        // Assign customer ID (if available)
+        if (isset($customer) && isset($customer->id)
+            && $customer->id !== $owner->StripeCustomerID
+        ) {
+            $owner->StripeCustomerID = $customer->id;
+            $owner->write();
         }
 
         /** 

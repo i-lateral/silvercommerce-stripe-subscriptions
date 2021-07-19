@@ -117,47 +117,6 @@ class MemberExtension extends DataExtension
         }
     }
 
-    public function onAfterWrite()
-    {
-        /** @var Member */
-        $owner = $this->getOwner();
-
-        // Is Member a front-end user? If not, finish processing
-        $group = $owner->Groups()->find('Code', 'users-frontend');
-
-        if (empty($group)) {
-            return;
-        }
-
-        StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
-
-        $customer = StripeConnector::createOrUpdate(
-            Customer::class,
-            $owner->getStripeData(),
-            $owner->StripeCustomerID
-        );
-
-        // Assign customer ID (if available)
-        if (isset($customer) && isset($customer->id)
-            && $customer->id !== $owner->StripeCustomerID
-        ) {
-            $owner->StripeCustomerID = $customer->id;
-            $owner->write();
-        }
-
-        // Finally, if this user has subscriptions, ensure they are in the Subscribers group
-        // or remove them if not
-        $sub_group = Group::get()->find('Code', 'subscriber');
-
-        if (isset($sub_group)) {
-            if ($owner->getStripePlans()->exists()) {
-                $owner->Groups()->add($sub_group);
-            } else {
-                $owner->Groups()->remove($sub_group);
-            }
-        }
-    }
-
     public function isSubscribed(): bool
     {
         $owner = $this->getOwner();
