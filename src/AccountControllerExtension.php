@@ -123,7 +123,7 @@ class AccountControllerExtension extends Extension
     }
 
     /**
-     * Remove a selected card (for the currenty user) and redirect to payment details
+     * Remove a selected card (for the current user) and redirect to payment details
      *
      * @return HTTPResponse
      */

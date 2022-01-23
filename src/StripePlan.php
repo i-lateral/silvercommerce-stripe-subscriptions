@@ -161,7 +161,7 @@ class StripePlan extends Product
     }
 
     /**
-     * Get an expirey date, based on the provided date string
+     * Get an expiry date, based on the provided date string
      * or current date if none set.
      *
      * @param string $start The start date in a usable string
