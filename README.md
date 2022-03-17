@@ -28,3 +28,29 @@ Except:
 ilateral\SilverCommerce\StripeSubscriptions\StripePlan:
   publish_key: TEST_KEY
   secret_key: TEST_KEY
+
+## Coupons
+
+This module now supports Stripe Coupons (via the 
+SilverCommerce discounts module).
+
+Stripe coupons are a custom type of Discount
+that can be created via `SiteConfig`.
+
+**NOTE** Subscriptions use a custom checkout process
+that skips the shopping cart. In order to apply the
+discount, you will have to use the discount URL OR
+add the discount form to you `Checkout.ss` template:
+
+For Example, add the form to the order summary (on
+the right) via:
+
+```HTML
+  <div class="unit size1of3 col-xs-12 col-sm-4">
+        <% with $Estimate %>
+            <% include SilverCommerce\Checkout\Includes\OrderSummary %>
+        <% end_with %>
+
+        $DiscountForm
+  </div>
+```
