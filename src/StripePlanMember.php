@@ -18,10 +18,10 @@ use SilverCommerce\OrdersAdmin\Model\Invoice;
 /**
  * Join object that handles mapping a Stripe Plan to a user.
  *
- * The stripe plan is joined via the Projuct stock ID, incase the plan product is accidentally
+ * The stripe plan is joined via the Product stock ID, in case the plan product is accidentally
  * deleted.
  *
- * Finally, this plan is also tracked with an expirey time (setup at the point of payment/renewal)
+ * Finally, this plan is also tracked with an expiry time (setup at the point of payment/renewal)
  * that will determine if this subscription is still active.
  */
 class StripePlanMember extends DataObject

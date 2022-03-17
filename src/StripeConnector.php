@@ -54,7 +54,7 @@ class StripeConnector
     }
 
     /**
-     * Globaly set the API key via the Stripe SDK
+     * Globally set the API key via the Stripe SDK
      *
      * @param string $type The type of key (publish or secret)
      *

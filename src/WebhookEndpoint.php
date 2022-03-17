@@ -14,7 +14,7 @@ use Stripe\SubscriptionItem;
 class WebhookEndpoint extends Controller
 {
     /*
-     * The json data providede as part of this 
+     * The json data provided as part of this
      *
      * @var stdClass
      */
@@ -142,7 +142,7 @@ class WebhookEndpoint extends Controller
         }
 
         // If previous status was active and now "past due", then
-        // subscription payment failed. Otherwise, if active, matk as paid
+        // subscription payment failed. Otherwise, if active, mark as paid
         if ($sub->status == Subscription::STATUS_PAST_DUE
             && $previous_status == Subscription::STATUS_ACTIVE)
         {
