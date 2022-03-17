@@ -16,6 +16,7 @@ use SilverStripe\SiteConfig\SiteConfig;
 use SilverCommerce\Checkout\Control\Checkout;
 use ilateral\SilverCommerce\StripeSubscriptions\StripeCardForm;
 use ilateral\SilverCommerce\StripeSubscriptions\StripeConnector;
+use Stripe\ApiResource;
 
 class StripeCheckout extends Checkout
 {
@@ -30,6 +31,46 @@ class StripeCheckout extends Checkout
     ];
 
     /**
+     * Setup the intent for this checkout to be used by the payment
+     * form. For a one of payment, this would be a Payment Intent,
+     * but could also be a setup intent (if storing data for a later charge)
+     *
+     * @param ApiResource $customer
+     *
+     * @return ApiResource
+     */
+    protected function getStripeIntentObject(ApiResource $customer): ApiResource
+    {
+        $config = SiteConfig::current_site_config();
+        $estimate = $this->getEstimate();
+
+        // Get three digit currency code
+        $number_format = new NumberFormatter(
+            $config->SiteLocale,
+            NumberFormatter::CURRENCY
+        );
+        $currency_code = $number_format
+            ->getTextAttribute(NumberFormatter::CURRENCY_CODE);
+
+        $intent = StripeConnector::createOrUpdate(
+            PaymentIntent::class,
+            [
+                'amount' => round($estimate->Total * 100),
+                'currency' => $currency_code,
+                'description' => _t(
+                    "Order.PaymentDescription",
+                    "Payment for Order: {ordernumber}",
+                    ['ordernumber' => $estimate->FullRef]
+                ),
+                'customer' => $customer->id,
+                'metadata' => ['integration_check' => 'accept_a_payment'],
+            ]
+        );
+
+        return $intent;
+    }
+
+    /**
      * Overwrite default payment to setup a payment intent
      */
     public function payment()
@@ -41,7 +82,6 @@ class StripeCheckout extends Checkout
 
         $estimate = $this->getEstimate();
         $key = StripeConnector::getStripeAPIKey();
-        $config = SiteConfig::current_site_config();
 
         // If estimate does not have a shipping address, restart checkout
         if (empty(trim($estimate->BillingAddress))) {
@@ -89,29 +129,8 @@ class StripeCheckout extends Checkout
                 return $this->doSubmitPayment([], $this->PaymentForm());
             }
 
-            // Get three digit currency code
-            $number_format = new NumberFormatter(
-                $config->SiteLocale,
-                NumberFormatter::CURRENCY
-            );
-            $currency_code = $number_format
-                ->getTextAttribute(NumberFormatter::CURRENCY_CODE);
-
-            // Now setup a subscription and get payment intent
-            $intent = StripeConnector::createOrUpdate(
-                PaymentIntent::class,
-                [
-                    'amount' => round($estimate->Total * 100),
-                    'currency' => $currency_code,
-                    'description' => _t(
-                        "Order.PaymentDescription",
-                        "Payment for Order: {ordernumber}",
-                        ['ordernumber' => $estimate->FullRef]
-                    ),
-                    'customer' => $stripe_customer->id,
-                    'metadata' => ['integration_check' => 'accept_a_payment'],
-                ]
-            );
+            // Now setup a one off payment
+            $intent = $this->getStripeIntentObject($stripe_customer);
 
             if (!isset($intent) || !isset($intent->client_secret)) {
                 throw new LogicException("Error setting up payment");
