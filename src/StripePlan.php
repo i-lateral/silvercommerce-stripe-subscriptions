@@ -4,14 +4,14 @@ namespace ilateral\SilverCommerce\StripeSubscriptions;
 
 use Product;
 use DateTime;
-use Stripe\Plan;
+use ilateral\SilverCommerce\StripeSubscriptions\Interfaces\StripeSubscriptionObject;
 use NumberFormatter;
 use SilverStripe\i18n\i18n;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\Security\Member;
-use Stripe\Exception\InvalidRequestException;
+use Stripe\Plan;
 
 /**
  * @property string Interval
@@ -19,7 +19,7 @@ use Stripe\Exception\InvalidRequestException;
  * @property string StripeID
  * @property string SubscriptionID
  */
-class StripePlan extends Product
+class StripePlan extends Product implements StripeSubscriptionObject
 {
     const INTERVAL_DAY = 'day';
 
@@ -90,6 +90,21 @@ class StripePlan extends Product
         return $this->StockID;
     }
 
+    /**
+     * Stub class, as StripeID should be the stock ID
+     *
+     * @return string
+     */
+    public function setStripeID(string $id): self
+    {
+        return $this;
+    }
+
+    public function getStripeClass(): string
+    {
+        return Plan::class;
+    }
+
     public function getNicePrice(): string
     {
         if ($this->hasMethod('renderWith')) {
@@ -138,15 +153,14 @@ class StripePlan extends Product
 
     /**
      * Return an array of data suitable to push to stripe
-     *
-     * @param bool $detail_product Provide more detailed product info
      * 
      * @return array
      */
-    protected function getStripeCreateData(): array
+    public function getStripeCreateData(): array
     {
         $locale = i18n::get_locale();
         $number = new NumberFormatter($locale, NumberFormatter::CURRENCY);
+
         return [
             'id' => $this->StripeID,
             'currency' => $number->getTextAttribute(NumberFormatter::CURRENCY_CODE),
@@ -158,6 +172,16 @@ class StripePlan extends Product
                 'name' => $this->Title
             ]
         ];
+    }
+
+    /**
+     * Plans cannot be updated once created
+     * 
+     * @return array
+     */
+    public function getStripeUpdateData(): array
+    {
+        return [];
     }
 
     /**
@@ -217,21 +241,5 @@ class StripePlan extends Product
         );
 
         return parent::getCMSFields();
-    }
-
-    public function onAfterWrite()
-    {
-        parent::onAfterWrite();
-
-        StripeConnector::setStripeAPIKey(StripeConnector::KEY_SECRET);
-
-        // Check if this plan already exists, create a new one if not
-        try {
-            Plan::retrieve($this->StripeID);
-        } catch (InvalidRequestException $e) {
-            if ($e->getStripeCode() === "resource_missing") {
-                Plan::create($this->getStripeCreateData());
-            }
-        }
     }
 }
