@@ -5,6 +5,8 @@ namespace ilateral\SilverCommerce\StripeSubscriptions;
 use Exception;
 use LogicException;
 use Stripe\Customer;
+use Stripe\ApiResource;
+use Stripe\SetupIntent;
 use Stripe\Subscription;
 use SilverStripe\Forms\Form;
 use SilverStripe\Security\Member;
@@ -12,9 +14,13 @@ use SilverStripe\Forms\HeaderField;
 use SilverStripe\Security\Security;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Forms\CompositeField;
+use SilverCommerce\Discounts\DiscountFactory;
 use SilverCommerce\ContactAdmin\Model\Contact;
 use SilverStripe\Forms\ConfirmedPasswordField;
+use SilverCommerce\Discounts\Forms\DiscountCodeForm;
 use ilateral\SilverCommerce\StripeSubscriptions\StripeCardForm;
+use SilverStripe\Forms\LiteralField;
+use SilverStripe\Forms\ReadonlyField;
 
 /**
  * Add extra actions to the checkout to handle stripe payment flow
@@ -35,8 +41,38 @@ class SubscriptionCheckout extends StripeCheckout
     private static $allowed_actions = [
         'payment',
         'CustomerForm',
+        'DiscountForm',
         'PaymentForm'
     ];
+
+    /**
+     * The subscription object should generate a payment intent
+     * unless the order is zero value. Then we need to setup
+     * a card for later payment with a setup intent
+     *
+     * @param ApiResource $customer
+     *
+     * @return ApiResource
+     */
+    protected function getStripeIntentObject(ApiResource $customer): ApiResource
+    {
+        // Create a setup intent for the new card 
+        $intent = StripeConnector::createOrUpdate(
+            SetupIntent::class,
+            [
+                'customer' => $customer->id,
+                'payment_method_types' => ['card'],
+                'payment_method_options' => [
+                    'card' => [
+                        'request_three_d_secure' => 'automatic'
+                    ]
+                ],
+                'usage' => 'off_session'
+            ]
+        );
+
+        return $intent;
+    }
 
     /**
      * Overwrite default payment setup to allow for setup intents and loading a custom payment form
@@ -71,30 +107,16 @@ class SubscriptionCheckout extends StripeCheckout
             /** @var Contact */
             $contact = $estimate->Customer();
 
-            $stripe_obj = StripeConnector::createOrUpdate(
+            $stripe_contact = StripeConnector::createOrUpdate(
                 Customer::class,
                 $contact->getStripeData(),
                 $contact->StripeID
             );
 
             // If not currently in stripe, connect now
-            if (isset($stripe_obj) && isset($stripe_obj->id)) {
-                $contact->StripeID = $stripe_obj->id;
+            if (isset($stripe_contact) && isset($stripe_contact->id)) {
+                $contact->StripeID = $stripe_contact->id;
                 $contact->write();
-            }
-
-            // If estimate has zero value, then automatically generate
-            // a payment, mark as paid and complete
-            if ($estimate->getTotal() == 0) {
-                $zero_gateway = $this->config()->zero_gateway;
-        
-                Config::modify()->set(
-                    Payment::class,
-                    'allowed_gateways',
-                    [$zero_gateway]
-                );
-            
-                return $this->doSubmitPayment([], $this->PaymentForm());
             }
 
             // Now setup a subscription and get payment intent
@@ -103,22 +125,45 @@ class SubscriptionCheckout extends StripeCheckout
                 $estimate->getStripeData()
             );
 
-            if (!isset($sub) || !isset($sub->latest_invoice)
-                || !isset($sub->latest_invoice->payment_intent)
-                || !isset($sub->latest_invoice->payment_intent->client_secret)
-            ) {
-                throw new LogicException("Error setting up payment");
+            if (!isset($sub) || !isset($sub->latest_invoice)) {
+                throw new LogicException("Error generating invoice");
+            }
+
+            $total = $estimate->getTotal();
+
+            // If initial payment isn't 0 (free trial, coupon, etc) and no invoice
+            // generated, raise an error
+            if ($total > 0 && (!isset($sub->latest_invoice->payment_intent) || !isset($sub->latest_invoice->payment_intent->client_secret))) {
+                throw new LogicException("Payment intent error");
+            }
+
+            $gateway_form = $this->GatewayForm();
+            $payment_form = $this->PaymentForm();
+
+            // If the current invoice has a value (not using a coupon or trial),
+            // load the default payment form and setup intent. If no value,
+            // simply add the card and save against the subscription
+            if ($total > 0) {
+                $intent_type = StripeCardForm::INTENT_PAYMENT;
+                $intent = $sub->latest_invoice->payment_intent;
+            } else {
+                $intent_type = StripeCardForm::INTENT_SETUP;
+                $intent = $this->getStripeIntentObject($stripe_contact);
+                $payment_form
+                    ->Fields()
+                    ->push(LiteralField::create(
+                        'ZeroValueInfo',
+                        _t('StripeSubscriptions.ZeroValueInfo', 'Payment details for future payments')
+                    ));
             }
 
             $estimate->StripeSubscriptionID = $sub->id;
             $estimate->write();
 
-            $gateway_form = $this->GatewayForm();
-            $payment_form = $this
-                ->PaymentForm()
+            $payment_form
                 ->setPK($key)
-                ->setIntent(StripeCardForm::INTENT_PAYMENT)
-                ->setSecret($sub->latest_invoice->payment_intent->client_secret)
+                ->setIntent($intent_type)
+                ->setSecret($intent->client_secret)
                 ->loadDataFrom([
                     'cardholder-name' => $estimate->FirstName . ' ' . $estimate->Surname,
                     'cardholder-email' => $estimate->Email,
@@ -126,12 +171,10 @@ class SubscriptionCheckout extends StripeCheckout
                     'cardholder-zip' => $estimate->PostCode
                 ]);
 
-            $this->customise(
-                [
-                    "GatewayForm" => $gateway_form,
-                    "PaymentForm" => $payment_form
-                ]
-            );
+            $this->customise([
+                "GatewayForm" => $gateway_form,
+                "PaymentForm" => $payment_form
+            ]);
 
             $this->extend("onBeforePayment");
 
@@ -172,6 +215,28 @@ class SubscriptionCheckout extends StripeCheckout
             );
         }
 
+        return $form;
+    }
+    
+    /**
+     * Form that allows you to add a discount code which then gets added
+     * to the cart's list of discounts.
+     *
+     * @return Form
+     */
+    public function DiscountForm(): DiscountCodeForm
+    {
+        // Allow replacing of existing discounts
+        Config::modify()->set(DiscountFactory::class, 'allow_replacement', true);
+
+        $form = DiscountCodeForm::create(
+            $this,
+            "DiscountForm",
+            $this->getEstimate()
+        );
+
+        $this->extend("updateDiscountForm", $form);
+        
         return $form;
     }
 
