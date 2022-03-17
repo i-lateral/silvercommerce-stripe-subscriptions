@@ -1,13 +1,11 @@
 <?php
 
-namespace ilateral\SilverCommerce\StripeSubscriptions;
+namespace ilateral\SilverCommerce\StripeSubscriptions\Extensions;
 
-use Stripe\Customer;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\ArrayList;
-use SilverStripe\Security\Group;
+use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
-use SilverStripe\Security\Member;
 use SilverStripe\ORM\DataExtension;
 use SilverStripe\Forms\DatetimeField;
 use SilverStripe\Forms\DropdownField;
@@ -17,6 +15,7 @@ use Symbiote\GridFieldExtensions\GridFieldTitleHeader;
 use SilverStripe\Forms\GridField\GridFieldDeleteAction;
 use SilverStripe\Forms\GridField\GridFieldToolbarHeader;
 use Symbiote\GridFieldExtensions\GridFieldEditableColumns;
+use ilateral\SilverCommerce\StripeSubscriptions\StripePlan;
 use Symbiote\GridFieldExtensions\GridFieldAddNewInlineButton;
 
 /**
@@ -63,7 +62,7 @@ class MemberExtension extends DataExtension
             ->getStripePaymentCards();
     }
 
-    public function updateCMSFields(\SilverStripe\Forms\FieldList $fields)
+    public function updateCMSFields(FieldList $fields)
     {
         $plans_field = $fields->dataFieldByName('StripePlans');
 

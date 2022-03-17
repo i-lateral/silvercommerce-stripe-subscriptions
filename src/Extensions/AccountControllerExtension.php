@@ -1,26 +1,26 @@
 <?php
 
-namespace ilateral\SilverCommerce\StripeSubscriptions;
+namespace ilateral\SilverCommerce\StripeSubscriptions\Extensions;
 
 use Exception;
 use Stripe\SetupIntent;
-use Stripe\Subscription;
 use Stripe\PaymentMethod;
-use SilverStripe\ORM\ArrayList;
 use SilverStripe\Core\Extension;
 use SilverStripe\View\ArrayData;
 use SilverStripe\Security\Security;
-use SilverStripe\View\Requirements;
-use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
-use SilverCommerce\Checkout\Control\Checkout;
 use SilverCommerce\OrdersAdmin\Factory\OrderFactory;
-use Stripe\Checkout\Session as StripeCheckoutSession;
 use ilateral\SilverStripe\Users\Control\AccountController;
+use ilateral\SilverCommerce\StripeSubscriptions\StripePlan;
+use ilateral\SilverCommerce\StripeSubscriptions\StripeCardForm;
+use ilateral\SilverCommerce\StripeSubscriptions\StripeConnector;
 use ilateral\SilverCommerce\StripeSubscriptions\StripePlanMember;
+use ilateral\SilverCommerce\StripeSubscriptions\SubscriptionCheckout;
 
 class AccountControllerExtension extends Extension
 {
+    const TEMPLATE_LOC = "ilateral\SilverCommerce\StripeSubscriptions";
+
     private static $allowed_actions = [
         "paymentdetails",
         "addcard",
@@ -53,7 +53,7 @@ class AccountControllerExtension extends Extension
                     "Content" => $this
                         ->getOwner()
                         ->renderWith(
-                            __NAMESPACE__ . '\Includes\AccountPaymentDetails',
+                            self::TEMPLATE_LOC . '\Includes\AccountPaymentDetails',
                             ['Cards' => $cards]
                         )
                 ]
@@ -160,7 +160,7 @@ class AccountControllerExtension extends Extension
                     ),
                     "Content" => $this
                         ->getOwner()
-                        ->renderWith(__NAMESPACE__ . '\Includes\AccountSubscriptions')
+                        ->renderWith(self::TEMPLATE_LOC . '\Includes\AccountSubscriptions')
                 ]
             )->render();
     }

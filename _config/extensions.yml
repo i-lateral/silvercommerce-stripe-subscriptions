@@ -3,16 +3,26 @@ Name: stripepaymentsextensions
 ---
 SilverStripe\Security\Member:
   extensions:
-    - ilateral\SilverCommerce\StripeSubscriptions\MemberExtension
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\MemberExtension
 SilverCommerce\OrdersAdmin\Model\Estimate:
   extensions:
-    - ilateral\SilverCommerce\StripeSubscriptions\EstimateExtension
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\EstimateExtension
 SilverStripe\Security\Group:
   extensions:
-    - ilateral\SilverCommerce\StripeSubscriptions\GroupExtension
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\GroupExtension
 ilateral\SilverStripe\Users\Control\AccountController:
   extensions:
-    - ilateral\SilverCommerce\StripeSubscriptions\AccountControllerExtension
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\AccountControllerExtension
 SilverCommerce\ContactAdmin\Model\Contact:
   extensions:
-    - ilateral\SilverCommerce\StripeSubscriptions\ContactExtension
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\ContactExtension
+
+ilateral\SilverCommerce\StripeSubscriptions\StripePlan:
+  extensions:
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\DataObjectExtension
+ilateral\SilverCommerce\StripeSubscriptions\Coupons\FixedRateCoupon:
+  extensions:
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\DataObjectExtension
+ilateral\SilverCommerce\StripeSubscriptions\Coupons\PercentageCoupon:
+  extensions:
+    - ilateral\SilverCommerce\StripeSubscriptions\Extensions\DataObjectExtension

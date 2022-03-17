@@ -1,10 +1,13 @@
 <?php
 
-namespace ilateral\SilverCommerce\StripeSubscriptions;
+namespace ilateral\SilverCommerce\StripeSubscriptions\Extensions;
 
 use SilverStripe\ORM\DataExtension;
 use SilverCommerce\ContactAdmin\Model\Contact;
 use SilverCommerce\OrdersAdmin\Model\Estimate;
+use SilverCommerce\Discounts\Model\AppliedDiscount;
+use ilateral\SilverCommerce\StripeSubscriptions\StripePlanMember;
+use ilateral\SilverCommerce\StripeSubscriptions\Interfaces\StripeSubscriptionObject;
 
 /**
  * Add Stripe data to an estimate
@@ -52,6 +55,17 @@ class EstimateExtension extends DataExtension
 
         if (isset($customer) && !empty($customer->StripeID)) {
             $data['customer'] = $customer->StripeID;
+        }
+
+        // If any applied discounts are Stripe Coupons, apply them to
+        // the stripe data
+        foreach ($owner->Discounts() as $applied_discount) {
+            /** @var AppliedDiscount $applied_discount */
+            $discount = $applied_discount->getDiscount();
+
+            if (!empty($discount) && $discount instanceof StripeSubscriptionObject) {
+                $data['coupon'] = $discount->getStripeID();
+            }
         }
 
         return $data;

@@ -1,6 +1,6 @@
 <?php
 
-namespace ilateral\SilverCommerce\StripeSubscriptions;
+namespace ilateral\SilverCommerce\StripeSubscriptions\Extensions;
 
 use Stripe\Customer;
 use Stripe\PaymentMethod;
@@ -14,6 +14,7 @@ use SilverStripe\Core\Injector\Injector;
 use SilverCommerce\ContactAdmin\Model\Contact;
 use ilateral\SilverStripe\Users\Control\AccountController;
 use ilateral\SilverCommerce\StripeSubscriptions\StripeConnector;
+use ilateral\SilverCommerce\StripeSubscriptions\StripePlanMember;
 
 class ContactExtension extends DataExtension
 {

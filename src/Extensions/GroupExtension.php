@@ -1,6 +1,6 @@
 <?php
 
-namespace ilateral\SilverCommerce\StripeSubscriptions;
+namespace ilateral\SilverCommerce\StripeSubscriptions\Extensions;
 
 use SilverStripe\ORM\DB;
 use SilverStripe\Security\Group;
